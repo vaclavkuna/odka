@@ -1,13 +1,12 @@
 # Denní aktualizace kurzů ČNB
 # Spouští se každý pracovní den v 15:30 SEČ (13:30 UTC)
-# Stáhne aktuální kurzy z webu ČNB a přidá je do kurzy.json na gh-pages
+# Stáhne aktuální kurzy z ČNB API, přidá je do kurzy.json a nasadí
 
 name: Aktualizace kurzů ČNB
 
 on:
   schedule:
     - cron: '30 13 * * 1-5'
-  # Lze spustit i ručně přes GitHub Actions záložku
   workflow_dispatch:
 
 permissions:
@@ -17,22 +16,32 @@ jobs:
   aktualizuj-kurzy:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: gh-pages
+      - name: Checkout
+        uses: actions/checkout@v4
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
 
-      - name: Stáhnout a aktualizovat kurzy
-        run: node stahni-kurzy.js
+      - name: Aktualizovat kurzy
+        run: node scripts/stahni-kurzy.js
+        working-directory: ./ODKA
 
-      - name: Uložit změny
+      - name: Uložit změny do main
         run: |
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
-          git add kurzy.json
+          git add ODKA/assets/kurzy.json
           git diff --staged --quiet || git commit -m "Aktualizace kurzů ČNB $(date '+%d.%m.%Y')"
           git push
+
+      - name: Sestavit a nasadit
+        run: npm install && npm run build
+        working-directory: ./ODKA
+
+      - name: Deploy
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./ODKA/dist
